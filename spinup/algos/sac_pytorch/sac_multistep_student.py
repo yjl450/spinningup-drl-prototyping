@@ -560,7 +560,7 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
 
             # TODO: after you store bias info to logger, you should also write code here to log them
             #  so that you can later plot them
-            logger.log_tabular('Bias', bias_avg, average_only=True)
+            logger.log_tabular('Bias', bias_avg.item(), average_only=True)
 
             logger.log_tabular('Time', time.time()-start_time)
             logger.dump_tabular()
