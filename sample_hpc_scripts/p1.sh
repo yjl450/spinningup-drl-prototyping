@@ -11,8 +11,8 @@
 #SBATCH --output=run_%A_%a.out # %A is SLURM_ARRAY_JOB_ID, %a is SLURM_ARRAY_TASK_ID
 #SBATCH --error=run_%A_%a.err
 
-#SBATCH --gres=gpu:1 # uncomment this line to request for a gpu if your program uses gpu
-# # SBATCH --constraint=cpu # use this if you want to only use cpu
+# #SBATCH --gres=gpu:1 # uncomment this line to request for a gpu if your program uses gpu
+# SBATCH --constraint=cpu # use this if you want to only use cpu
 
 # the sleep command will help with hpc issues when you have many jobs loading same files
 sleep $(( (RANDOM%10) + 1 ))
