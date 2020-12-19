@@ -16,39 +16,32 @@ SAC multistep variant
 student version
 """
 
-
 class MultistepReplayBuffer:
     """
     FIFO buffer for a multi-step agent
     """
-
     def __init__(self, obs_dim, act_dim, size):
         """
         :param obs_dim: size of observation
         :param act_dim: size of the action
         :param size: size of the buffer
         """
-        # init buffers as numpy arrays
+        ## init buffers as numpy arrays
         self.obs1_buf = np.zeros([size, obs_dim], dtype=np.float32)
         self.obs2_buf = np.zeros([size, obs_dim], dtype=np.float32)
         self.acts_buf = np.zeros([size, act_dim], dtype=np.float32)
         self.rews_buf = np.zeros(size, dtype=np.float32)
         self.done_buf = np.zeros(size, dtype=np.float32)
-        # number of timestep until terminal state/end of episode (min is 1)
-        self.tildone_buf = np.zeros(size, dtype=np.float32)
-        # the sum of discounted rewards for the next k steps
-        self.ksteprews_buf = np.zeros(size, dtype=np.float32)
+        self.tildone_buf = np.zeros(size, dtype=np.float32) # number of timestep until terminal state/end of episode (min is 1)
+        self.ksteprews_buf = np.zeros(size, dtype=np.float32) # the sum of discounted rewards for the next k steps
         self.ptr, self.size, self.max_size = 0, 0, size
-        self.ready_ptr = 0  # points to the next datapoint that will be ready for multistep est
+        self.ready_ptr = 0 # points to the next datapoint that will be ready for multistep est
 
         # temporary buffer to help the multistep part
         self.temp_max_size = 100000
-        self.obs1_temp_buf = np.zeros(
-            [self.temp_max_size, obs_dim], dtype=np.float32)
-        self.obs2_temp_buf = np.zeros(
-            [self.temp_max_size, obs_dim], dtype=np.float32)
-        self.acts_temp_buf = np.zeros(
-            [self.temp_max_size, act_dim], dtype=np.float32)
+        self.obs1_temp_buf = np.zeros([self.temp_max_size, obs_dim], dtype=np.float32)
+        self.obs2_temp_buf = np.zeros([self.temp_max_size, obs_dim], dtype=np.float32)
+        self.acts_temp_buf = np.zeros([self.temp_max_size, act_dim], dtype=np.float32)
         self.rews_temp_buf = np.zeros(self.temp_max_size, dtype=np.float32)
         self.done_temp_buf = np.zeros(self.temp_max_size, dtype=np.float32)
         self.temp_ptr = 0
@@ -64,9 +57,8 @@ class MultistepReplayBuffer:
         self.done_buf[self.ptr] = done
         self.tildone_buf[self.ptr] = til_done
         self.ptr = (self.ptr + 1) % self.max_size
-        # keep track of the current buffer size
+        ## keep track of the current buffer size
         self.size = min(self.size+1, self.max_size)
-
     def store(self, obs, act, rew, next_obs, done, current_ep_len, max_ep_len, multistep_k, gamma):
         """
         data will get stored in the pointer's location
@@ -101,14 +93,15 @@ class MultistepReplayBuffer:
                 reward_temp_ptr = start_temp_ptr
                 for j in range(n_steps):
                     reward_list.append(self.rews_temp_buf[reward_temp_ptr])
-                    reward_temp_ptr = (reward_temp_ptr +
-                                       1) % self.temp_max_size
+                    reward_temp_ptr = (reward_temp_ptr + 1) % self.temp_max_size
 
-                sum_discounted_reward = self.compute_sum_discounted_reward_from_reward_list(
-                    reward_list, gamma)
-                self._store_ready_data(self.obs1_temp_buf[start_temp_ptr], self.acts_temp_buf[start_temp_ptr],
-                                       sum_discounted_reward, self.obs2_temp_buf[self.temp_ptr - 1],
-                                       self.done_temp_buf[self.temp_ptr - 1], n_steps)
+                sum_discounted_reward = self.compute_sum_discounted_reward_from_reward_list(reward_list, gamma)
+                self._store_ready_data(self.obs1_temp_buf[start_temp_ptr],
+                                       self.acts_temp_buf[start_temp_ptr],
+                                       sum_discounted_reward,
+                                       self.obs2_temp_buf[self.temp_ptr - 1],
+                                       self.done_temp_buf[self.temp_ptr - 1],
+                                       n_steps)
         elif current_ep_len >= multistep_k:
             # if the episode does not terminate or reach episode max length
             # and we are ready to store one multistep data point
@@ -122,11 +115,13 @@ class MultistepReplayBuffer:
                 reward_list.append(self.rews_temp_buf[reward_temp_ptr])
                 reward_temp_ptr = (reward_temp_ptr + 1) % self.temp_max_size
 
-            sum_discounted_reward = self.compute_sum_discounted_reward_from_reward_list(
-                reward_list, gamma)
-            self._store_ready_data(self.obs1_temp_buf[start_temp_ptr], self.acts_temp_buf[start_temp_ptr],
-                                   sum_discounted_reward, self.obs2_temp_buf[self.temp_ptr-1],
-                                   self.done_temp_buf[self.temp_ptr-1], n_steps)
+            sum_discounted_reward = self.compute_sum_discounted_reward_from_reward_list(reward_list, gamma)
+            self._store_ready_data(self.obs1_temp_buf[start_temp_ptr], 
+                                   self.acts_temp_buf[start_temp_ptr],
+                                   sum_discounted_reward, 
+                                   self.obs2_temp_buf[self.temp_ptr-1],
+                                   self.done_temp_buf[self.temp_ptr-1],
+                                   n_steps)
         else:
             # if episode hasn't end, and current ep len is too small, then do nothing here
             pass
@@ -140,7 +135,7 @@ class MultistepReplayBuffer:
         return sum_discounted_reward
 
     def sample_batch(self, batch_size=32, idxs=None):
-        # sample with replacement from buffer
+        ## sample with replacement from buffer
         if idxs is None:
             idxs = np.random.randint(0, self.size, size=batch_size)
         return dict(obs1=self.obs1_buf[idxs],
@@ -149,7 +144,6 @@ class MultistepReplayBuffer:
                     rews=self.rews_buf[idxs],
                     done=self.done_buf[idxs],
                     idxs=idxs)
-
     def get_all_batch(self):
         return dict(obs1=self.obs1_buf[:self.size],
                     obs2=self.obs2_buf[:self.size],
@@ -177,7 +171,7 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
 
         seed (int): Seed for random number generators.
 
-        steps_per_epoch (int): Number of steps of interaction (state-action pairs)
+     π   steps_per_epoch (int): Number of steps of interaction (state-action pairs)
             for the agent and the environment in each epoch. Note the epoch here is just logging epoch
             so every this many steps a logging to stdouot and also output file will happen
             note: not to be confused with training epoch which is a term used often in literature for all kinds of
@@ -232,23 +226,25 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
         batch_size = 2
         start_steps = 1000
         multistep_k = 5
-        use_single_variant = True
+        use_single_variant = True 
+     
     """set up logger"""
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
 
     env, test_env = env_fn(), env_fn()
 
-    # seed torch and numpy
+    ## seed torch and numpy
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    # seed environment along with env action space so that everything about env is seeded
+    ## seed environment along with env action space so that everything about env is seeded
     env.seed(seed)
     env.action_space.np_random.seed(seed)
     test_env.seed(seed + 10000)
     test_env.action_space.np_random.seed(seed + 10000)
 
+    # Also setup evaluation env for estimation of bias
     evaluate_env = env_fn()
     evaluate_env.seed(seed + 150)
     evaluate_env.action_space.np_random.seed(seed + 150)
@@ -264,14 +260,13 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
     act_limit = env.action_space.high[0].item()
 
     # Experience buffer
-    replay_buffer = MultistepReplayBuffer(
-        obs_dim=obs_dim, act_dim=act_dim, size=replay_size)
+    replay_buffer = MultistepReplayBuffer(obs_dim=obs_dim, act_dim=act_dim, size=replay_size)
 
     """
     Auto tuning alpha
     """
     if auto_alpha:
-        target_entropy = -np.prod(env.action_space.shape).item()  # H
+        target_entropy =  -np.prod(env.action_space.shape).item() # H
         log_alpha = torch.zeros(1, requires_grad=True)
         alpha_optim = optim.Adam([log_alpha], lr=lr)
     else:
@@ -302,22 +297,21 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
 
     """init all networks"""
     # see line 1
-    policy_net = TanhGaussianPolicySACAdapt(
-        obs_dim, act_dim, hidden_sizes, action_limit=act_limit)
-    q1_net = Mlp(obs_dim+act_dim, 1, hidden_sizes)
-    q2_net = Mlp(obs_dim+act_dim, 1, hidden_sizes)
+    policy_net = TanhGaussianPolicySACAdapt(obs_dim, act_dim, hidden_sizes,action_limit=act_limit)
+    q1_net = Mlp(obs_dim+act_dim,1,hidden_sizes)
+    q2_net = Mlp(obs_dim+act_dim,1,hidden_sizes)
 
-    q1_target_net = Mlp(obs_dim+act_dim, 1, hidden_sizes)
-    q2_target_net = Mlp(obs_dim+act_dim, 1, hidden_sizes)
+    q1_target_net = Mlp(obs_dim+act_dim,1,hidden_sizes)
+    q2_target_net = Mlp(obs_dim+act_dim,1,hidden_sizes)
 
     # see line 2: copy parameters from value_net to target_value_net
     q1_target_net.load_state_dict(q1_net.state_dict())
     q2_target_net.load_state_dict(q2_net.state_dict())
 
     # set up optimizers
-    policy_optimizer = optim.Adam(policy_net.parameters(), lr=lr)
-    q1_optimizer = optim.Adam(q1_net.parameters(), lr=lr)
-    q2_optimizer = optim.Adam(q2_net.parameters(), lr=lr)
+    policy_optimizer = optim.Adam(policy_net.parameters(),lr=lr)
+    q1_optimizer = optim.Adam(q1_net.parameters(),lr=lr)
+    q2_optimizer = optim.Adam(q2_net.parameters(),lr=lr)
 
     # mean squared error loss for v and q networks
     mse_criterion = nn.MSELoss()
@@ -349,8 +343,7 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
         # Store experience (observation, action, reward, next observation, done) to replay buffer
         # the multi-step buffer (given to you) will store the data in a fashion that
         # they can be easily used for multi-step update
-        replay_buffer.store(o, a, r, o2, d, ep_len,
-                            max_ep_len, multistep_k, gamma)
+        replay_buffer.store(o, a, r, o2, d, ep_len, max_ep_len, multistep_k, gamma)
 
         # Super critical, easy to overlook step: make sure to update
         # most recent observation!
@@ -383,30 +376,22 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
 
             """get q loss"""
             with torch.no_grad():
-                a_tilda_next, _, _, log_prob_a_tilda_next, _, _ = policy_net.forward(
-                    obs_next_tensor)
-                q1_next = q1_target_net(
-                    torch.cat([obs_next_tensor, a_tilda_next], 1))
-                q2_next = q2_target_net(
-                    torch.cat([obs_next_tensor, a_tilda_next], 1))
+                a_tilda_next, _, _, log_prob_a_tilda_next, _, _ = policy_net.forward(obs_next_tensor)
+                q1_next = q1_target_net(torch.cat([obs_next_tensor, a_tilda_next], 1))
+                q2_next = q2_target_net(torch.cat([obs_next_tensor, a_tilda_next], 1))
 
                 # TODO: compute the k-step Q estiamte (in the form of reward + next Q), don't worry about the entropy terms
                 if use_single_variant:
                     # write code for computing the k-step estimate for the single Q estimate variant case
-                    y_q = rews_tensor + (1-done_tensor) * \
-                        (gamma ** multistep_k) * q1_next
+                    y_q = rews_tensor + (1 - done_tensor) * (gamma ** multistep_k) * q1_next
                 else:
                     # write code for computing the k-step estimate while using double clipped Q
-                    y_q = rews_tensor + \
-                        (1-done_tensor) * (gamma ** multistep_k) * \
-                        torch.min(q1_next, q2_next)
+                    y_q = rews_tensor + (1 - done_tensor) * (gamma ** multistep_k) * torch.min(q1_next, q2_next)
 
                 # add the entropy, with a simplied heuristic way
                 # NOTE: you don't need to modify the following 3 lines. They deal with entropy terms
                 powers = np.arange(1, multistep_k+1)
-                entropy_discounted_sum = - \
-                    sum(gamma ** powers) * (1 - done_tensor) * \
-                    alpha * log_prob_a_tilda_next
+                entropy_discounted_sum = - sum(gamma ** powers) * (1 - done_tensor) * alpha * log_prob_a_tilda_next
                 y_q += entropy_discounted_sum
 
             # JQ = 𝔼(st,at)~D[0.5(Q1(st,at) - r(st,at) - γ(𝔼st+1~p[V(st+1)]))^2]
@@ -418,8 +403,7 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
             """
             get policy loss
             """
-            a_tilda, mean_a_tilda, log_std_a_tilda, log_prob_a_tilda, _, _ = policy_net.forward(
-                obs_tensor)
+            a_tilda, mean_a_tilda, log_std_a_tilda, log_prob_a_tilda, _, _ = policy_net.forward(obs_tensor)
 
             # see line 12: second equation
             q1_a_tilda = q1_net(torch.cat([obs_tensor, a_tilda], 1))
@@ -438,8 +422,7 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
             alpha loss, update alpha
             """
             if auto_alpha:
-                alpha_loss = -(log_alpha * (log_prob_a_tilda +
-                                            target_entropy).detach()).mean()
+                alpha_loss = -(log_alpha * (log_prob_a_tilda + target_entropy).detach()).mean()
 
                 alpha_optim.zero_grad()
                 alpha_loss.backward()
@@ -486,9 +469,9 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
 
         if d or (ep_len == max_ep_len):
             """when episode terminates, log info about this episode, then reset"""
-            # store episode return and length to logger
+            ## store episode return and length to logger
             logger.store(EpRet=ep_ret, EpLen=ep_len)
-            # reset environment
+            ## reset environment
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
 
         # End of epoch wrap-up
@@ -501,12 +484,12 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
             and also the state_dict of each optimizer
             """
             if save_model:
-                sac_state_dict = {'env': env, 'policy_net': policy_net.state_dict(),
-                                  'q1_net': q1_net.state_dict(), 'q2_net': q2_net.state_dict(),
+                sac_state_dict = {'env':env,'policy_net':policy_net.state_dict(),
+                                  'q1_net':q1_net.state_dict(), 'q2_net':q2_net.state_dict(),
                                   'q1_target_net': q1_target_net.state_dict(), 'q2_target_net': q2_target_net.state_dict(),
-                                  'policy_opt': policy_optimizer,
-                                  'q1_opt': q1_optimizer, 'q2_opt': q2_optimizer,
-                                  'log_alpha': log_alpha, 'alpha_opt': alpha_optim, 'target_entropy': target_entropy}
+                                  'policy_opt':policy_optimizer,
+                                  'q1_opt':q1_optimizer, 'q2_opt':q2_optimizer,
+                                  'log_alpha':log_alpha, 'alpha_opt':alpha_optim, 'target_entropy':target_entropy}
                 if (epoch % save_freq == 0) or (epoch == epochs-1):
                     logger.save_state(sac_state_dict, None)
             # use joblib.load(fname) to load
@@ -575,7 +558,6 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
             logger.log_tabular('Time', time.time()-start_time)
             logger.dump_tabular()
             sys.stdout.flush()
-
 
 if __name__ == '__main__':
     import argparse
