@@ -518,37 +518,39 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
             #  recall that we can define the Q bias to be Q value - discounted MC return
             #  initialize another environment that is only used for provide such a bias estimate
             #  store that to logger
-            print("evalution ==================================")
-            bias_ep = 10
+
+            # How many episode to calculate bias
+            bias_ep = 20 
             bias_avg = 0
-            abandon = 0
             for i in range(bias_ep):
-                r_list = []
-                q_list = []
+                r_list = []  # collect return in current episode
+                q_list = []  # collect q value in current episode  
+                # reset environment
                 o, r, d, ep_ret, ep_len = evaluate_env.reset(), 0, False, 0, 0
                 while not (d or (ep_len == max_ep_len)):
-                    # Take deterministic actions at test time
+                    # use current policy to generate MC return
                     a = policy_net.get_env_action(o, deterministic=False)
                     o, r, d, _ = test_env.step(a)
-                    q1_pred = q1_net(torch.cat([Tensor(o[np.newaxis]), Tensor(a[np.newaxis])], 1))
+                    q1_pred = q1_net(
+                        torch.cat([Tensor(o[np.newaxis]), Tensor(a[np.newaxis])], 1))
                     if use_single_variant:
                         q_val = q1_pred
                     else:
-                        q2_pred = q2_net(torch.cat([Tensor(o[np.newaxis]), Tensor(a[np.newaxis])], 1))
+                        q2_pred = q2_net(
+                            torch.cat([Tensor(o[np.newaxis]), Tensor(a[np.newaxis])], 1))
                         q_val = torch.min(q1_pred, q2_pred)
                     r_list.append(r)
                     q_list.append(q_val)
+                # if max episode length reached, discard last 200 states
                 if ep_len == max_ep_len and d == False:
-                    print("abandon iter:", i)
-                    abandon += 1
-                    continue
+                    r_list = r_list[:-200]
+                    q_list = q_list[:-200]
+                # Calculate discounted return backwards
                 for j in range(len(r_list)-2, -1, -1):
                     r_list[j] = r_list[j] + gamma * r_list[j+1]
                 bias_avg += torch.mean(torch.Tensor(q_list) -
-                                       torch.Tensor(r_list))
-            print("total iter:", bias_ep - abandon)
-            bias_avg /= (bias_ep-abandon)
-            print("evalution End ==================================")
+                                       torch.Tensor(r_list))  # Bias = Q value - MC return
+            bias_avg /= (bias_ep)
 
             # Log info about epoch
             logger.log_tabular('Epoch', epoch)

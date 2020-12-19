@@ -11,7 +11,7 @@ you can do a quick test on your own machine before you upload to hpc
 VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
 """
 
-EXPERIMENT_NAME = 'SAC_single_1_5'
+EXPERIMENT_NAME = 'SAC_1_5'
 
 """
 always change the experiment name first 
@@ -45,7 +45,7 @@ if __name__ == '__main__':
                [0, 1, 2, 3],
                 [False, True], [1, 5]]
     whether_add_to_savename = [True, False, True, True]
-    setting_savename_prefix = ['', '', 'Single', 'k']
+    setting_savename_prefix = ['', '', 's', 'k']
 
     n_setting = len(setting_names)
     assert_correct = (len(settings) == n_setting and len(whether_add_to_savename)==n_setting and len(setting_savename_prefix)==n_setting)
