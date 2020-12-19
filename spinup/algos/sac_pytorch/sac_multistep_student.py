@@ -518,8 +518,10 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
             #  recall that we can define the Q bias to be Q value - discounted MC return
             #  initialize another environment that is only used for provide such a bias estimate
             #  store that to logger
+            print("evalution ==================================")
             bias_ep = 10
             bias_avg = 0
+            abandon = 0
             for i in range(bias_ep):
                 r_list = []
                 q_list = []
@@ -536,11 +538,17 @@ def sac_multistep(env_fn, hidden_sizes=[256, 256], seed=0,
                         q_val = torch.min(q1_pred, q2_pred)
                     r_list.append(r)
                     q_list.append(q_val)
+                if ep_len == max_ep_len and d == False:
+                    print("abandon iter:", i)
+                    abandon += 1
+                    continue
                 for j in range(len(r_list)-2, -1, -1):
                     r_list[j] = r_list[j] + gamma * r_list[j+1]
                 bias_avg += torch.mean(torch.Tensor(q_list) -
                                        torch.Tensor(r_list))
-            bias_avg /= bias_ep
+            print("total iter:", bias_ep - abandon)
+            bias_avg /= (bias_ep-abandon)
+            print("evalution End ==================================")
 
             # Log info about epoch
             logger.log_tabular('Epoch', epoch)
